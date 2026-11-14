@@ -1,4 +1,4 @@
-local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/041cf38/source/library.lua"), "Axis UI"))()
+local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/8f90830bd4121f459fe640597bbcee86f020089d/source/library.lua"), "Axis UI"))()
 Native.FontSize = 14
 Native.WeaponPreview = function(window, params)
     local input = game:GetService("UserInputService")
@@ -135,7 +135,8 @@ wrap = function(native, section)
         local aliases = {MB1 = Enum.UserInputType.MouseButton1, MB2 = Enum.UserInputType.MouseButton2, None = Enum.KeyCode.Backspace}
         local key = aliases[data.Default] or Enum.KeyCode[data.Default] or Enum.KeyCode.Backspace
         local o = {Value = data.Default, Toggled = false, Changed = {}, Clicked = {}}
-        local n = section:Keybind({Name = label(data.Text), Flag = id, Default = key, Mode = data.Mode,
+        local createBind = self.Native.GetBind and function(_, data) return self.Native:GetBind(data) end or section.Keybind
+        local n = createBind(section, {Name = label(data.Text), Flag = id, Default = key, Mode = data.Mode,
             Callback = function(v)
                 o.Toggled = v
                 if o.Native then
