@@ -6234,6 +6234,8 @@ local Library do
         end
 
         Library.Sections.Label = function(self, Name)
+            if type(Name) == "table" then Name = Name.Name or Name.name or Name.Text or Name.text end
+            Name = tostring(Name or "Label")
             local Label = {
                 Window = self.Window,
                 Page = self.Page,
