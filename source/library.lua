@@ -72,9 +72,9 @@ local Library do
         FadeSpeed = 0.2,
 
         Folders = {
-            Directory = "axisclub-ui",
-            Configs = "axisclub-ui/Configs",
-            Assets = "axisclub-ui/Assets",
+            Directory = "Axis",
+            Configs = "Axis/Config/" .. tostring(game.GameId),
+            Assets = "Axis/Assets",
         },
 
         Pages = { },
@@ -195,6 +195,8 @@ local Library do
 
     Library.Theme = TableClone(Themes["Preset"])
 
+    if not isfolder("Axis") then makefolder("Axis") end
+    if not isfolder("Axis/Config") then makefolder("Axis/Config") end
     for Index, Value in Library.Folders do
         if not isfolder(Value) then
             makefolder(Value)
@@ -714,6 +716,7 @@ local Library do
     })
 
     Library.Unload = function(self)
+        if self.FlushAutosave then self:FlushAutosave() end
         for Index, Value in self.Connections do
             Value.Connection:Disconnect()
         end
@@ -844,6 +847,7 @@ local Library do
 
         local Success, Result = Library:SafeCall(function()
             for Index, Value in Library.Flags do
+                if Index == "ConfigsName" or Index == "ConfigsList" then continue end
                 if type(Value) == "table" and Value.Key then
                     Config[Index] = {Key = tostring(Value.Key), Mode = Value.Mode}
                 elseif type(Value) == "table" and Value.Color then
@@ -857,11 +861,41 @@ local Library do
         return HttpService:JSONEncode(Config)
     end
 
+    Library.StartAutosave = function(self)
+        if self.AutosaveActive then return end
+        self.AutosavePath = self.Folders.Configs .. "/autosave.json"
+        self.RestoringConfig = true
+        if isfile(self.AutosavePath) then
+            local ok, err = pcall(function() self:LoadConfig(readfile(self.AutosavePath)) end)
+            if not ok then self.ConfigError = tostring(err) end
+        end
+        self.RestoringConfig = false
+        self.AutosaveActive = true
+        local last, changedAt, elapsed = nil, nil, 0
+        self.FlushAutosave = function()
+            if not self.AutosaveActive or self.RestoringConfig then return end
+            local ok, err = pcall(function() writefile(self.AutosavePath,self:GetConfig()) end)
+            if not ok then self.ConfigError = tostring(err) end
+        end
+        self:FlushAutosave()
+        self:Connect(RunService.Heartbeat,function(dt)
+            elapsed += dt
+            if elapsed < 0.25 then return end
+            elapsed = 0
+            local ok, value = pcall(function() return self:GetConfig() end)
+            if not ok then self.ConfigError = tostring(value) return end
+            if value ~= last then last = value changedAt = os.clock()
+            elseif changedAt and os.clock() - changedAt >= 0.5 then self:FlushAutosave() changedAt = nil end
+        end)
+    end
+
     Library.LoadConfig = function(self, Config)
         local Decoded = HttpService:JSONDecode(Config)
 
         local Success, Result = Library:SafeCall(function()
             for Index, Value in Decoded do
+                Library.PendingConfig = Library.PendingConfig or {}
+                Library.PendingConfig[Index] = Value
                 local SetFunction = Library.SetFlags[Index]
 
                 if not SetFunction then
@@ -3289,6 +3323,7 @@ local Library do
             end
 
             function Window:Init()
+                task.delay(1,function() if Library and Library.Holder and Library.Holder.Instance.Parent then Library:StartAutosave() end end)
                 for __, Value in Window.Pages do
                     if Value.Active then
                         for _, Value2 in Value.Sections do
@@ -5281,6 +5316,8 @@ local Library do
                     local content = Instances:Create("Frame", {Parent=popup,Position=UDim2New(0,10,0,8),Size=UDim2New(1,-20,1,-16),BackgroundTransparency=1,ZIndex=3})
                     local section = {Window=Toggle.Window,Page=Toggle.Page,Items={Content=content},Elements={}}
                     nativeBind = Library.Sections.Keybind(section, bindData or {Name="",Flag=Toggle.Flag.."_Bind",Default=Enum.KeyCode.Backspace,Mode="Toggle",Callback=function(value) Toggle:Set(value) end})
+                    local saved = Library.PendingConfig and Library.PendingConfig[nativeBind.Flag]
+                    if saved then nativeBind:Set(saved) end
                     nativeBind.Items.Text.Instance.Visible = false
                     nativeBind.Items.Modes.Instance.Size = UDim2New(1,0,0,25)
                     nativeBind.Items.SubElements.Instance.Position = UDim2New(0,0,0,34)
@@ -6812,7 +6849,7 @@ local Library do
                     local RealKey = Key.Key == "Backspace" and "None" or Key.Key
                     Keybind.Key = tostring(Key.Key)
 
-                    if Key.ModeSelected then
+                    if Key.Mode then
                         Keybind.ModeSelected = Key.Mode
                         Keybind:SetMode(Key.Mode)
                     else
@@ -7549,7 +7586,9 @@ local Library do
                         if not isfolder(Library.Folders.Configs) then
                             makefolder(Library.Folders.Configs)
                         end
-                        local FinalName = InputName:find(".json") and InputName or InputName .. ".json"
+                        local safeName = tostring(InputName):gsub("[^%w _%-]", ""):sub(1,48)
+                        if safeName == "" or safeName:lower() == "autosave" then return end
+                        local FinalName = safeName .. ".json"
                         writefile(Library.Folders.Configs .. "/" .. FinalName, Library:GetConfig())
 
                         Library:RefreshConfigsList(ConfigsDropdown)
