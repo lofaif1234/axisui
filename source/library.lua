@@ -779,7 +779,7 @@ local Library do
         local Success, Result = pcall(Function, TableUnpack(Arguements))
 
         if not Success then
-            warn(Result)
+            Library.LastError = tostring(Result)
             return false
         end
 
