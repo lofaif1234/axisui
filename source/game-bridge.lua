@@ -1,4 +1,4 @@
-local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/64c5638292dfc5f294e5776ff56de095fe7fc03d/source/library.lua"), "Axis UI"))()
+local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/3663a4df2ef11fb9c59588f8c49989e76f229d84/source/library.lua"), "Axis UI"))()
 Native.FontSize = 14
 Native.WeaponPreview = function(window, params)
     local input = game:GetService("UserInputService")
