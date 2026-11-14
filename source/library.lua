@@ -5218,7 +5218,7 @@ local Library do
 
             local bind = {Key = "", Mode = "Toggle"}
             local popup, keyButton, modalGui, catcher
-            local holderEnabled
+            local blockedControls = {}
             local picking = false
             local bindFlag = Toggle.Flag .. "_Bind"
             gear = Instances:Create("ImageButton", {
@@ -5240,14 +5240,17 @@ local Library do
                 for mode, button in pairs(modeButtons) do
                     button.BackgroundColor3 = mode == bind.Mode and Library.Theme.Accent or Library.Theme.Element
                     button.TextColor3 = mode == bind.Mode and Library.Theme.Accent or Library.Theme.Text
-                    button.BackgroundTransparency = mode == bind.Mode and 0.84 or 1
+                    button.BackgroundTransparency = mode == bind.Mode and 0.8 or 1
                 end
             end
             local function closeBind()
                 picking = false
                 if popup then popup.Visible = false end
                 if modalGui then modalGui.Enabled = false end
-                if holderEnabled ~= nil then Library.Holder.Instance.Enabled = holderEnabled holderEnabled = nil end
+                for object, state in pairs(blockedControls) do
+                    if object.Parent then object.Interactable = state end
+                end
+                table.clear(blockedControls)
                 if Library.BindModal == bind then Library.BindModal = nil end
                 refreshBind()
             end
@@ -5260,15 +5263,15 @@ local Library do
                 modalGui = create("ScreenGui", {Name = "AxisBindModal", Parent = Library.Holder.Instance.Parent, ResetOnSpawn = false, DisplayOrder = Library.Holder.Instance.DisplayOrder + 100, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = Library.Holder.Instance.IgnoreGuiInset})
                 catcher = create("TextButton", {Name = "Backdrop", Parent = modalGui, Text = "", Size = UDim2New(1,0,1,0), BackgroundTransparency = 1, AutoButtonColor = false, Active = true, Modal = true, ZIndex = 1})
                 Library:Connect(catcher.MouseButton1Click, closeBind)
-                popup = create("Frame", {Name = "ToggleBindPopup", Active = true, Parent = modalGui, Size = UDim2New(0, 224, 0, 90), BackgroundColor3 = Library.Theme["Background 2"], BorderSizePixel = 0, ZIndex = 100})
+                popup = create("Frame", {Name = "ToggleBindPopup", Active = true, Parent = modalGui, Size = UDim2New(0, 224, 0, 90), BackgroundColor3 = Library.Theme["Section Background 2"], BorderSizePixel = 0, ZIndex = 100})
                 create("UICorner", {Parent = popup, CornerRadius = UDimNew(0, 6)})
                 create("UIStroke", {Parent = popup, Color = Library.Theme.Outline, Thickness = 1})
-                create("TextLabel", {Parent = popup, Text = "Keybind", FontFace = Library.Font, TextSize = 13, TextColor3 = Library.Theme.Text, BackgroundTransparency = 1, Position = UDim2New(0, 10, 0, 8), Size = UDim2New(0, 65, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 101})
+                create("TextLabel", {Parent = popup, Text = "Key", FontFace = Library.Font, TextSize = 14, TextColor3 = Library.Theme.Text, BackgroundTransparency = 1, Position = UDim2New(0, 10, 0, 8), Size = UDim2New(0, 65, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 101})
                 keyButton = create("TextButton", {Name = "Key", Parent = popup, Text = "None", FontFace = Library.Font, TextSize = 13, TextColor3 = Library.Theme.Text, BackgroundColor3 = Library.Theme.Element, BorderSizePixel = 0, Position = UDim2New(0, 84, 0, 8), Size = UDim2New(0, 130, 0, 26), ZIndex = 101})
                 create("UICorner", {Parent = keyButton, CornerRadius = UDimNew(0, 4)})
                 Library:Connect(keyButton.MouseButton1Click, function() picking = true refreshBind() end)
                 for index, mode in ipairs({"Toggle", "Hold", "Always"}) do
-                    local button = create("TextButton", {Name = mode, Parent = popup, Text = mode, FontFace = Library.Font, TextSize = 12, TextColor3 = Library.Theme.Text, BackgroundColor3 = Library.Theme.Element, BorderSizePixel = 0, Position = UDim2New(0, 10 + (index - 1) * 69, 0, 48), Size = UDim2New(0, 66, 0, 28), ZIndex = 101})
+                    local button = create("TextButton", {Name = mode, Parent = popup, Text = mode, FontFace = Library.Font, TextSize = 12, TextColor3 = Library.Theme.Text, BackgroundColor3 = Library.Theme.Element, AutoButtonColor = false, BorderSizePixel = 0, Position = UDim2New(0, 10 + (index - 1) * 69, 0, 48), Size = UDim2New(0, 66, 0, 28), ZIndex = 101})
                     create("UICorner", {Parent = button, CornerRadius = UDimNew(0, 4)})
                     modeButtons[mode] = button
                     Library:Connect(button.MouseButton1Click, function()
@@ -5286,8 +5289,12 @@ local Library do
                 local position = gear.Instance.AbsolutePosition
                 local screen = Library.Holder.Instance.AbsoluteSize
                 popup.Position = UDim2New(0, MathClamp(position.X - 206, 8, math.max(8, screen.X - 232)), 0, MathClamp(position.Y + 24, 8, math.max(8, screen.Y - 98)))
-                holderEnabled = Library.Holder.Instance.Enabled
-                Library.Holder.Instance.Enabled = false
+                for _, object in ipairs(Library.Holder.Instance:GetDescendants()) do
+                    if object:IsA("GuiButton") or object:IsA("TextBox") then
+                        blockedControls[object] = object.Interactable
+                        object.Interactable = false
+                    end
+                end
                 Library.BindModal = bind
                 modalGui.Enabled = true
                 popup.Visible = true
