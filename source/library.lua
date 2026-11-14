@@ -2317,7 +2317,7 @@ local Library do
                     Name = "\0",
                     BorderColor3 = FromRGB(0, 0, 0),
                     AnchorPoint = Vector2New(0.5, 0.5),
-                    BackgroundTransparency = 0.12,
+                    BackgroundTransparency = 0,
                     Position = UDim2New(0.5519999861717224, 0, 0.5, 0),
                     Size = UDim2New(0, 640, 0, 606),
                     ZIndex = 2,
@@ -2342,7 +2342,7 @@ local Library do
                     Visible = true,
                     BorderColor3 = FromRGB(0, 0, 0),
                     AnchorPoint = Vector2New(1, 0),
-                    BackgroundTransparency = 0.15,
+                    BackgroundTransparency = 0,
                     Size = UDim2New(0, 225, 1, 0),
                     ZIndex = 2,
                     BorderSizePixel = 0,
@@ -2522,17 +2522,17 @@ local Library do
                 Items["Logo"] = Instances:Create("ImageLabel", {
                     Parent = Items["BrandHeader"].Instance,
                     Name = "\0",
-                    ImageColor3 = FromRGB(255, 255, 255),
+                    ImageColor3 = Library.Theme.Accent,
                     ScaleType = Enum.ScaleType.Fit,
                     BorderColor3 = FromRGB(0, 0, 0),
                     Size = if Window.Wordmark then UDim2New(0, 145, 0, 48) else UDim2New(0, 35, 0, 35),
                     Image = Window.Logo,
                     BackgroundTransparency = 1,
-                    Position = if Window.Wordmark then UDim2New(0, 40, 0, 14) else UDim2New(0, 16, 0, 22),
+                    Position = if Window.Wordmark then UDim2New(0, 24, 0, 14) else UDim2New(0, 16, 0, 22),
                     ZIndex = 3,
                     BorderSizePixel = 0,
                     BackgroundColor3 = FromRGB(255, 255, 255)
-                })
+                }) Items["Logo"]:AddToTheme({ImageColor3 = "Accent"})
 
                 Instances:Create("UIGradient", {
                     Parent = Items["Logo"].Instance,
@@ -2589,7 +2589,7 @@ local Library do
                     Parent = Items["MainFrame"].Instance,
                     Name = "\0",
                     BorderColor3 = FromRGB(0, 0, 0),
-                    BackgroundTransparency = 0.75,
+                    BackgroundTransparency = 0,
                     Position = UDim2New(0, 0, 0, 55),
                     Size = UDim2New(1, 0, 1, -55),
                     ZIndex = 2,
@@ -2845,8 +2845,8 @@ local Library do
                 end
 
                 function Window:SetTransparency()
-                    Items["MainFrame"].Instance.BackgroundTransparency = Library.Flags["BackgroundTransparency"]
-                    Items["LeftTabs"].Instance.BackgroundTransparency = Library.Flags["BackgroundTransparency"]
+                    Items["MainFrame"].Instance.BackgroundTransparency = 0
+                    Items["LeftTabs"].Instance.BackgroundTransparency = 0
                     if IsMobile then
                         Items["FloatingButton"].Instance.BackgroundTransparency = Library.Flags["BackgroundTransparency"]
                     end
@@ -3237,18 +3237,6 @@ local Library do
                     end
                 })
 
-                Settings:Slider({
-                    Name = "Background Transparency",
-                    Default = 0.12,
-                    Decimals = 0.01,
-                    Max = 1,
-                    Min = 0,
-                    Suffix = "%",
-                    Flag = "BackgroundTransparency",
-                    Callback = function(Value)
-                        Window:SetTransparency(Value)
-                    end
-                })
 
                 Settings:Keybind({
                     Name = "Menu Keybind",
