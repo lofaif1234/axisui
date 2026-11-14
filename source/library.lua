@@ -5216,7 +5216,7 @@ local Library do
                 end
             end)
 
-            local popup, modalGui, nativeBind
+            local popup, modalGui, nativeBind, bindData
             local blocked = {}
             local function closeBind()
                 if modalGui then modalGui.Enabled = false end
@@ -5250,7 +5250,7 @@ local Library do
                     Instances:Create("UIStroke", {Parent=popup,Color=Library.Theme.Outline,Thickness=1})
                     local content = Instances:Create("Frame", {Parent=popup,Position=UDim2New(0,10,0,8),Size=UDim2New(1,-20,1,-16),BackgroundTransparency=1,ZIndex=3})
                     local section = {Window=Toggle.Window,Page=Toggle.Page,Items={Content=content},Elements={}}
-                    nativeBind = Library.Sections.Keybind(section, {Name="",Flag=Toggle.Flag.."_Bind",Default=Enum.KeyCode.Backspace,Mode="Toggle",Callback=function(value) Toggle:Set(value) end})
+                    nativeBind = Library.Sections.Keybind(section, bindData or {Name="",Flag=Toggle.Flag.."_Bind",Default=Enum.KeyCode.Backspace,Mode="Toggle",Callback=function(value) Toggle:Set(value) end})
                     nativeBind.Items.Text.Instance.Visible = false
                     nativeBind.Items.Modes.Instance.Size = UDim2New(1,0,0,25)
                     nativeBind.Items.SubElements.Instance.Position = UDim2New(0,0,0,34)
@@ -5267,6 +5267,10 @@ local Library do
                 Library.OpenFrames[Toggle] = {SetOpen=function(_,value) if not value then closeBind() end end}
             end
             gear = Instances:Create("ImageButton", {Parent=Items["Toggle"].Instance,Name="BindSettings",BackgroundTransparency=1,Image="rbxassetid://122669828593160",ImageColor3=Library.Theme.Text,ImageTransparency=0.3,AnchorPoint=Vector2New(1,0),Position=UDim2New(1,0,0,0),Size=UDim2New(0,18,0,18),ZIndex=5})
+            function Toggle:GetBind(data)
+                if not nativeBind then bindData=data openBind() closeBind() end
+                return nativeBind
+            end
             gear:Connect("MouseButton1Click",openBind)
             Library:Connect(RunService.Heartbeat,function() if modalGui and modalGui.Enabled and not Toggle.Window.IsOpen then closeBind() end end)
 
