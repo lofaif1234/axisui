@@ -1,45 +1,5 @@
 local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/eeaf32808b031681ebb96712865a97ad890f8683/source/library.lua"), "Axis UI"))()
 Native.FontSize = 14
-Native.WeaponPreview = function(window, params)
-    local input = game:GetService("UserInputService")
-    local function part(class, parent, properties)
-        local object = Instance.new(class)
-        for key,value in pairs(properties) do object[key] = value end
-        object.Parent = parent
-        return object
-    end
-    local frame = part("Frame", Native.Holder.Instance, {Size=UDim2.fromOffset(380,320),BackgroundColor3=Native.Theme.Background,BorderSizePixel=0,Visible=false})
-    part("UICorner",frame,{CornerRadius=UDim.new(0,6)})
-    local top = part("Frame",frame,{Size=UDim2.new(1,0,0,32),BackgroundColor3=Native.Theme["Section Top"],BorderSizePixel=0})
-    part("TextLabel",top,{Text=params.Name,FontFace=Native.Font,TextSize=14,TextColor3=Native.Theme.Text,BackgroundTransparency=1,Size=UDim2.new(1,-40,1,0)})
-    local bottom = part("Frame",frame,{Size=UDim2.new(1,0,0,32),Position=UDim2.new(0,0,1,-32),BackgroundColor3=Native.Theme["Section Top"],BorderSizePixel=0})
-    local viewport = part("ViewportFrame",frame,{Size=UDim2.new(1,-12,1,-76),Position=UDim2.fromOffset(6,38),BackgroundTransparency=1,Ambient=Color3.new(1,1,1),LightColor=Color3.new(1,1,1)})
-    local camera = part("Camera",viewport,{FieldOfView=40})
-    viewport.CurrentCamera=camera
-    local view={Viewport=viewport,Camera=camera,Items={Top={Instance=top},Bottom={Instance=bottom}}}
-    local holder={Instance=frame}
-    function holder:ConvertAnchor() frame.AnchorPoint=Vector2.zero end
-    function holder:MakeDraggable()
-        local start,position,drag
-        Native:Connect(top.InputBegan,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then start=i.Position position=frame.Position drag=true end end)
-        Native:Connect(input.InputChanged,function(i) if drag and i.UserInputType==Enum.UserInputType.MouseMovement then local d=i.Position-start frame.Position=position+UDim2.fromOffset(d.X,d.Y) end end)
-        Native:Connect(input.InputEnded,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
-    end
-    view.Items.ESPPreview=holder
-    function view:SetVisibility(value) frame.Visible=value end
-    function view:SetModel(model)
-        if self.Player then self.Player:Destroy() end
-        self.Player=model:Clone()
-        for _,item in ipairs(self.Player:GetDescendants()) do if item:IsA("BasePart") then item.Anchored=true item.CanCollide=false end end
-        self.Player.Parent=viewport
-        self.Player:PivotTo(CFrame.new())
-        local cf,size=self.Player:GetBoundingBox()
-        local distance=math.max(size.X,size.Y,size.Z)*1.8
-        camera.CFrame=CFrame.lookAt(cf.Position+Vector3.new(distance*.6,distance*.25,distance),cf.Position)
-    end
-    table.insert(Native.ToClean,frame)
-    return view
-end
 local env = getgenv()
 env.Toggles, env.Options = {}, {}
 local Bridge = {ScreenGui = Native.Holder.Instance, KeybindFrame = {Visible = false}, Native = Native}
