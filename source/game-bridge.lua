@@ -1,6 +1,6 @@
 local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/main/source/library.lua"), "Axis UI"))()
 Native.FontSize = 14
-Native.ESPPreview = function(window, params)
+Native.WeaponPreview = function(window, params)
     local input = game:GetService("UserInputService")
     local function part(class, parent, properties)
         local object = Instance.new(class)
