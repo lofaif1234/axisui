@@ -5139,6 +5139,17 @@ local Library do
                 return Items["SubElements"]
             end
 
+            function Toggle:LayoutControls()
+                local right = Items.BindGear and Items.BindGear.Instance.Visible and 26 or 0
+                for _, button in ipairs(Items.ColorButtons or {}) do
+                    button.Instance.Position = UDim2New(1,-right,0,0)
+                    right = right + 26
+                end
+                Items.Text.Instance.AutomaticSize = Enum.AutomaticSize.None
+                Items.Text.Instance.Size = UDim2New(1,-(right+28),0,18)
+                Items.Text.Instance.TextTruncate = Enum.TextTruncate.AtEnd
+            end
+
             function Toggle:Colorpicker(Data)
                 Data = Data or { }
 
@@ -5154,7 +5165,7 @@ local Library do
                 }
 
                 local NewColorpicker, ColorpickerItems = Library:CreateColorpicker({
-                    Parent = Toggle:SubElementHolder(),
+                    Parent = Items["Toggle"],
                     Parent2 = Items["Toggle"],
                     Page = Colorpicker.Page,
                     Section = Colorpicker.Section,
@@ -5164,6 +5175,24 @@ local Library do
                     Alpha = Colorpicker.Alpha
                 })
 
+                local button = ColorpickerItems.ColorpickerButton.Instance
+                button.Name = "InlinePalette"
+                button.Size = UDim2New(0,18,0,18)
+                button.AnchorPoint = Vector2New(1,0)
+                button.ZIndex = 5
+                for _, child in ipairs(button:GetChildren()) do if child:IsA("GuiObject") then child.Visible = false end end
+                local palette = ColorpickerItems.PaletteIcon
+                if palette then
+                    palette.Instance.Parent = button
+                    palette.Instance.AnchorPoint = Vector2New(0.5,0.5)
+                    palette.Instance.Position = UDim2New(0.5,0,0.5,0)
+                    palette.Instance.Size = UDim2New(0,16,0,16)
+                    palette.Instance.Visible = true
+                    palette.Instance.ZIndex = 6
+                end
+                Items.ColorButtons = Items.ColorButtons or {}
+                table.insert(Items.ColorButtons, ColorpickerItems.ColorpickerButton)
+                Toggle:LayoutControls()
                 return NewColorpicker
             end
 
@@ -5211,7 +5240,8 @@ local Library do
                         return
                     end
 
-                    if Library:IsMouseOverFrame(gear) then return end
+                    if gear and gear.Instance.Visible and Library:IsMouseOverFrame(gear) then return end
+                    for _, button in ipairs(Items.ColorButtons or {}) do if Library:IsMouseOverFrame(button) then return end end
                     Toggle:Set(not Toggle.Value)
                 end
             end)
@@ -5266,11 +5296,14 @@ local Library do
                 modalGui.Enabled = true
                 Library.OpenFrames[Toggle] = {SetOpen=function(_,value) if not value then closeBind() end end}
             end
-            gear = Instances:Create("ImageButton", {Parent=Items["Toggle"].Instance,Name="BindSettings",BackgroundTransparency=1,Image="rbxassetid://122669828593160",ImageColor3=Library.Theme.Text,ImageTransparency=0.3,AnchorPoint=Vector2New(1,0),Position=UDim2New(1,0,0,0),Size=UDim2New(0,18,0,18),ZIndex=5})
+            gear = Instances:Create("ImageButton", {Parent=Items["Toggle"].Instance,Name="BindSettings",Visible=Data.Keybind == true,BackgroundTransparency=1,Image="rbxassetid://122669828593160",ImageColor3=Library.Theme.Text,ImageTransparency=0.3,AnchorPoint=Vector2New(1,0),Position=UDim2New(1,0,0,0),Size=UDim2New(0,18,0,18),ZIndex=5})
             function Toggle:GetBind(data)
+                Items.BindGear.Instance.Visible = true
+                Toggle:LayoutControls()
                 if not nativeBind then bindData=data openBind() closeBind() end
                 return nativeBind
             end
+            Items.BindGear = gear
             gear:Connect("MouseButton1Click",openBind)
             Library:Connect(RunService.Heartbeat,function() if modalGui and modalGui.Enabled and not Toggle.Window.IsOpen then closeBind() end end)
 
