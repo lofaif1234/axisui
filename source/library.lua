@@ -5203,15 +5203,118 @@ local Library do
                 end
             end
 
+            local gear
             Items["Toggle"]:Connect("InputBegan", function(Input)
                 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                     if Items["SettingsIcon"] and Library:IsMouseOverFrame(Items["SettingsIcon"]) then
                         return
                     end
 
+                    if Library:IsMouseOverFrame(gear) then return end
                     Toggle:Set(not Toggle.Value)
                 end
             end)
+
+            local bind = {Key = "", Mode = "Toggle"}
+            local popup, keyButton
+            local picking = false
+            local bindFlag = Toggle.Flag .. "_Bind"
+            gear = Instances:Create("ImageButton", {
+                Parent = Items["Toggle"].Instance,
+                Name = "BindSettings",
+                BackgroundTransparency = 1,
+                Image = "rbxassetid://122669828593160",
+                ImageColor3 = Library.Theme.Text,
+                ImageTransparency = 0.3,
+                AnchorPoint = Vector2New(1, 0),
+                Position = UDim2New(1, 0, 0, 0),
+                Size = UDim2New(0, 18, 0, 18),
+                ZIndex = 5,
+            })
+            local modeButtons = {}
+            local function refreshBind()
+                Library.Flags[bindFlag] = {Key = bind.Key, Mode = bind.Mode}
+                if keyButton then keyButton.Text = picking and "Press a key" or (bind.Key == "" and "None" or bind.Key) end
+                for mode, button in pairs(modeButtons) do
+                    button.BackgroundColor3 = mode == bind.Mode and Library.Theme.Accent or Library.Theme.Element
+                    button.TextColor3 = Library.Theme.Text
+                end
+            end
+            local function closeBind()
+                picking = false
+                if popup then popup.Visible = false end
+                refreshBind()
+            end
+            local function makeBindPopup()
+                local function create(class, properties)
+                    local object = InstanceNew(class)
+                    for key, value in pairs(properties) do object[key] = value end
+                    return object
+                end
+                popup = create("Frame", {Name = "ToggleBindPopup", Parent = Library.Holder.Instance, Size = UDim2New(0, 224, 0, 90), BackgroundColor3 = Library.Theme["Background 2"], BorderSizePixel = 0, ZIndex = 100})
+                create("UICorner", {Parent = popup, CornerRadius = UDimNew(0, 6)})
+                create("UIStroke", {Parent = popup, Color = Library.Theme.Outline, Thickness = 1})
+                create("TextLabel", {Parent = popup, Text = "Keybind", FontFace = Library.Font, TextSize = 13, TextColor3 = Library.Theme.Text, BackgroundTransparency = 1, Position = UDim2New(0, 10, 0, 8), Size = UDim2New(0, 65, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 101})
+                keyButton = create("TextButton", {Name = "Key", Parent = popup, Text = "None", FontFace = Library.Font, TextSize = 13, TextColor3 = Library.Theme.Text, BackgroundColor3 = Library.Theme.Element, BorderSizePixel = 0, Position = UDim2New(0, 84, 0, 8), Size = UDim2New(0, 130, 0, 26), ZIndex = 101})
+                create("UICorner", {Parent = keyButton, CornerRadius = UDimNew(0, 4)})
+                Library:Connect(keyButton.MouseButton1Click, function() picking = true refreshBind() end)
+                for index, mode in ipairs({"Toggle", "Hold", "Always"}) do
+                    local button = create("TextButton", {Name = mode, Parent = popup, Text = mode, FontFace = Library.Font, TextSize = 12, TextColor3 = Library.Theme.Text, BackgroundColor3 = Library.Theme.Element, BorderSizePixel = 0, Position = UDim2New(0, 10 + (index - 1) * 69, 0, 48), Size = UDim2New(0, 66, 0, 28), ZIndex = 101})
+                    create("UICorner", {Parent = button, CornerRadius = UDimNew(0, 4)})
+                    modeButtons[mode] = button
+                    Library:Connect(button.MouseButton1Click, function()
+                        bind.Mode = mode
+                        if mode == "Always" then Toggle:Set(true) elseif mode == "Hold" then Toggle:Set(false) end
+                        refreshBind()
+                    end)
+                end
+                table.insert(Library.ToClean, popup)
+            end
+            gear:Connect("MouseButton1Click", function()
+                if popup and popup.Visible then closeBind() return end
+                for _, other in pairs(Library.OpenFrames) do other:SetOpen(false) end
+                if not popup then makeBindPopup() end
+                local position = gear.Instance.AbsolutePosition
+                local screen = Library.Holder.Instance.AbsoluteSize
+                popup.Position = UDim2New(0, MathClamp(position.X - 206, 8, math.max(8, screen.X - 232)), 0, MathClamp(position.Y + 24, 8, math.max(8, screen.Y - 98)))
+                popup.Visible = true
+                Library.OpenFrames[bind] = bind
+                refreshBind()
+            end)
+            function bind:SetOpen(value) if not value then closeBind() end end
+            Library:Connect(UserInputService.InputBegan, function(input, processed)
+                local key = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode.Name or input.UserInputType.Name
+                if picking then
+                    if key == "MouseButton1" then return end
+                    if input.UserInputType ~= Enum.UserInputType.Keyboard and input.UserInputType ~= Enum.UserInputType.MouseButton2 and input.UserInputType ~= Enum.UserInputType.MouseButton3 then return end
+                    bind.Key = (key == "Escape" or key == "Backspace") and "" or key
+                    picking = false
+                    refreshBind()
+                    return
+                end
+                if popup and popup.Visible and input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    local mouse = UserInputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
+                    local function over(object) local p, size = object.AbsolutePosition, object.AbsoluteSize return mouse.X >= p.X and mouse.X <= p.X + size.X and mouse.Y >= p.Y and mouse.Y <= p.Y + size.Y end
+                    if not over(popup) and not over(gear.Instance) then closeBind() end
+                end
+                if processed or UserInputService:GetFocusedTextBox() or bind.Key == "" or key ~= bind.Key then return end
+                if bind.Mode == "Toggle" then Toggle:Set(not Toggle.Value) elseif bind.Mode == "Hold" then Toggle:Set(true) end
+            end)
+            Library:Connect(UserInputService.InputEnded, function(input)
+                local key = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode.Name or input.UserInputType.Name
+                if bind.Mode == "Hold" and bind.Key ~= "" and key == bind.Key then Toggle:Set(false) end
+            end)
+            Library:Connect(RunService.Heartbeat, function()
+                if popup and popup.Visible and not Toggle.Window.IsOpen then closeBind() end
+                if bind.Mode == "Always" and not Toggle.Value then Toggle:Set(true) end
+            end)
+            Library.SetFlags[bindFlag] = function(value)
+                if type(value) ~= "table" then return end
+                bind.Key = type(value.Key) == "string" and value.Key or ""
+                bind.Mode = (value.Mode == "Hold" or value.Mode == "Always") and value.Mode or "Toggle"
+                refreshBind()
+            end
+            refreshBind()
 
             Toggle:Set(Toggle.Default)
 
