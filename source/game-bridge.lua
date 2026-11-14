@@ -1,4 +1,4 @@
-local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/eeaf32808b031681ebb96712865a97ad890f8683/source/library.lua"), "Axis UI"))()
+local Native = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/b3f2507e0960e3f0c103fa64eca850471b190ca1/source/library.lua"), "Axis UI"))()
 Native.FontSize = 14
 local env = getgenv()
 env.Toggles, env.Options = {}, {}
