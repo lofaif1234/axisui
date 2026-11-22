@@ -3478,14 +3478,14 @@ local Library do
             Items.Status.Instance.TextTransparency = .4
             Items.Discord = create("TextButton", {Parent = Items.Root.Instance, Name = "Discord", Position = UDim2New(0,344,0,283+FooterOffset), Size = UDim2New(0,96,0,28), BackgroundColor3 = Library.Theme.Element, BorderSizePixel = 0, Text = "Discord", FontFace = Library.Font, TextSize = 12, TextColor3 = Library.Theme.Text, AutoButtonColor = false, ZIndex = 22})
             create("UICorner", {Parent = Items.Discord.Instance, CornerRadius = UDimNew(0,4)})
-            Items.Feedback=text(Items.Root.Instance,"Feedback","",20,76,274,20,11)
             local statusRevision=0
             function Loader:SetStatus(message,temporary)
                 statusRevision=statusRevision+1
                 local revision=statusRevision
-                Items.Feedback.Instance.Text=message
+                local previous=Items.Status.Instance.Text
+                Items.Status.Instance.Text=message
                 if temporary then task.delay(3,function()
-                    if self.Alive and statusRevision==revision then Items.Feedback.Instance.Text="" end
+                    if self.Alive and statusRevision==revision then Items.Status.Instance.Text=previous end
                 end) end
             end
             if RequireKey then
@@ -3528,7 +3528,10 @@ local Library do
             Items.Root.Instance:FindFirstChild("AccessTitle").Visible=false
             Items.Access.Instance.Visible=false
             text(Items.Root.Instance,"StatusTitle","Status",330,147,54,18,12).Instance.TextTransparency=.4
-            rect(Items.Status,384,147,116,18)
+            rect(Items.Status,384,138,116,36)
+            Items.Status.Instance.TextWrapped=true
+            Items.Status.Instance.TextTruncate=Enum.TextTruncate.None
+            Items.Status.Instance.TextSize=11
             Items.Status.Instance.TextXAlignment=Enum.TextXAlignment.Right
             Items.Status.Instance.TextTransparency=0
             Items.Status.Instance.Text=RequireKey and "Key required" or (Available and "Ready" or "Not supported")
@@ -3601,7 +3604,23 @@ local Library do
                 if RequireKey and not self.Authorized then return self:SubmitKey() end
                 self.Busy = true
                 Items.Launch.Instance.Text = "Loading..."
-                Items.Status.Instance.Text = "Starting Axis"
+                Items.Status.Instance.Text = "Loading..."
+                local completed=false
+                local function loaded()
+                    if completed or not self.Alive then return end
+                    completed=true
+                    Items.Launch.Instance.Text="Loaded"
+                    self:SetStatus("Loaded")
+                    task.delay(.6,function()if self.Alive then self:Destroy() end end)
+                end
+                if type(Data.IsReady)=="function" then task.spawn(function()
+                    local deadline=os.clock()+90
+                    while self.Alive and self.Busy and not completed and os.clock()<deadline do
+                        local ok,ready=pcall(Data.IsReady)
+                        if ok and ready then loaded() return end
+                        task.wait(.2)
+                    end
+                end) end
                 task.spawn(function()
                     local ok,value,reason = pcall(function()
                         if not self.Alive then return false,"Cancelled" end
@@ -3620,9 +3639,9 @@ local Library do
                         if not chunk then error(message,0) end
                         return chunk()
                     end)
-                    if not self.Alive then return end
+                    if not self.Alive or completed then return end
                     if ok and value ~= false then
-                        self:Destroy()
+                        loaded()
                     else
                         self.LastError = tostring(reason or value)
                         self.Busy = false
@@ -8025,6 +8044,15 @@ local loader=Library:Loader({Routes=routes,RequireKey=true,Discord="https://disc
     acceptedKey=key
     local ad=type(status.data)=="table" and status.data.note=="Ad Reward"
     return true,ad and "Temporary key accepted" or "Access key accepted"
+end,IsReady=function()
+    local current=getgenv().Library
+    if not current or current==Library or not current.Holder then return false end
+    local holder=current.Holder.Instance
+    if not holder or not holder.Parent then return false end
+    for _,child in ipairs(holder:GetChildren()) do
+        if child:IsA("Frame") and child.Name=="\0" and child.Visible and child.AbsoluteSize.X>100 then return true end
+    end
+    return false
 end,OnLaunch=function()
     if not acceptedKey then return false end
     getgenv().script_key=acceptedKey
