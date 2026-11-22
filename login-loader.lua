@@ -8029,7 +8029,6 @@ if previous and previous.Library then pcall(function()previous.Library:Unload()e
 local routes={
     [383310974]={Name="Adopt Me"},
     [66654135]={Name="Murder Mystery 2"},
-    [3183403065]={Name="Anime Adventures"},
     [5750914919]={Name="Fisch"},
     [10155360168]={Name="Illegal Soccer"},
     [10773416193]={Name="Voxel Wars"},
@@ -8041,10 +8040,44 @@ local routes={
     [6726637224]={Name="Street Life"},
     [10766972131]={Name="Throw Food"},
     [10769552054]={Name="Urban Reload"},
+    [3183403065]={Name="Anime Adventures"},
 }
 local api
 local acceptedKey
+local keyPath="Axis/Config/access-key.json"
+local http=game:GetService("HttpService")
+local function saveKey(key,status)
+    pcall(function()
+        if type(writefile)~="function"then return end
+        if not isfolder("Axis")then makefolder("Axis")end
+        if not isfolder("Axis/Config")then makefolder("Axis/Config")end
+        writefile(keyPath,http:JSONEncode({Key=key,Expires=status.data and status.data.auth_expire,Type=status.data and status.data.note=="Ad Reward" and "Temporary" or "Access"}))
+    end)
+end
+local function forgetKey(key)
+    pcall(function()
+        if isfile(keyPath)then
+            local saved=http:JSONDecode(readfile(keyPath))
+            if saved.Key==key then delfile(keyPath)end
+        end
+    end)
+end
+local roots={game:GetService("CoreGui"),game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")}
+pcall(function()if type(gethui)=="function"then table.insert(roots,gethui())end end)
+local before={}
+local function frames(callback)
+    local seen={}
+    for _,root in ipairs(roots)do
+        for _,gui in ipairs(root:GetChildren())do
+            if gui:IsA("ScreenGui") and not seen[gui]then
+                seen[gui]=true
+                for _,frame in ipairs(gui:GetChildren())do if frame:IsA("Frame")then callback(frame)end end
+            end
+        end
+    end
+end
 local messages={KEY_EXPIRED="Key expired. Get a new key.",KEY_BANNED="Key blocked.",KEY_HWID_LOCKED="Key linked to another device.",KEY_INCORRECT="Incorrect key.",KEY_INVALID="Enter a valid key.",INVALID_EXECUTOR="Executor not supported."}
+local loginRoot
 local loader=Library:Loader({Routes=routes,RequireKey=true,Discord="https://discord.gg/vhxurCeKKN",LinkvertiseUrl="https://ads.luarmor.net/get_key?for=axis-jebugScJRbro",ValidateKey=function(key)
     if not api then
         local chunk=loadstring(game:HttpGet("https://sdkapi-public.luarmor.net/library.lua"))
@@ -8054,25 +8087,40 @@ local loader=Library:Loader({Routes=routes,RequireKey=true,Discord="https://disc
     end
     local status=api.check_key(key)
     if type(status)~="table" then return false,"Authentication unavailable. Try again." end
-    if status.code~="KEY_VALID" then return false,messages[status.code] or "Unable to verify key. Try again." end
+    if status.code~="KEY_VALID" then
+        if messages[status.code]then forgetKey(key)end
+        return false,messages[status.code] or "Unable to verify key. Try again."
+    end
+    saveKey(key,status)
     acceptedKey=key
     local ad=type(status.data)=="table" and status.data.note=="Ad Reward"
     return true,ad and "Temporary key accepted" or "Access key accepted"
 end,IsReady=function()
-    local current=getgenv().Library
-    if not current or current==Library or not current.Holder then return false end
-    local holder=current.Holder.Instance
-    if not holder or not holder.Parent then return false end
-    for _,child in ipairs(holder:GetChildren()) do
-        if child:IsA("Frame") and child.Name=="\0" and child.Visible and child.AbsoluteSize.X>100 then return true end
-    end
-    return false
+    local ready=false
+    frames(function(frame)
+        if before[frame]or not frame.Visible or frame.AbsoluteSize.X<400 or frame.AbsoluteSize.Y<250 then return end
+        if frame==loginRoot then return end
+        for _,item in ipairs(frame:GetDescendants())do
+            if (item:IsA("TextLabel")or item:IsA("TextButton"))and item.Text=="Settings"then ready=true break end
+        end
+    end)
+    return ready
 end,OnLaunch=function()
     if not acceptedKey then return false end
+    frames(function(frame)before[frame]=true end)
     getgenv().script_key=acceptedKey
     local chunk=loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/f4679a3f92933ef1908932db4a9a18d2.lua"))
     if not chunk then return false end
     return chunk()
 end})
+loginRoot=loader.Items.Root.Instance
 environment.AxisLauncher={Library=Library,Loader=loader}
+task.defer(function()
+    if not loader.Alive then return end
+    local ok,saved=pcall(function()if isfile(keyPath)then return http:JSONDecode(readfile(keyPath))end end)
+    if ok and type(saved)=="table"and type(saved.Key)=="string"and saved.Key~=""then
+        loader.Items.KeyInput.Instance.Text=saved.Key
+        loader:SubmitKey()
+    end
+end)
 return environment.AxisLauncher
