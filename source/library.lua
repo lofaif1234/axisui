@@ -59,7 +59,7 @@ local Library do
         Theme =  { },
         ToClean = { },
 
-        MenuKeybind = tostring(Enum.KeyCode.Insert),
+        MenuKeybind = tostring(Enum.KeyCode.RightShift),
 
         Flags = { },
 
@@ -716,6 +716,7 @@ local Library do
     })
 
     Library.Unload = function(self)
+        if self.ActiveLoader then self.ActiveLoader:Destroy() end
         if self.FlushAutosave then self:FlushAutosave() end
         for Index, Value in self.Connections do
             Value.Connection:Disconnect()
@@ -2494,21 +2495,93 @@ local Library do
                     BackgroundColor3 = FromRGB(255, 255, 255)
                 })
 
-                Instances:Create("UIListLayout", {
+                Items["TabList"] = Instances:Create("ScrollingFrame", {
                     Parent = Items["LeftTabs"].Instance,
-                    Name = "\0",
+                    Name = "Tabs",
+                    Position = UDim2New(0, 0, 0, 88),
+                    Size = UDim2New(1, 0, 1, -160),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    CanvasSize = UDim2New(0, 0, 0, 0),
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                    ScrollingDirection = Enum.ScrollingDirection.Y,
+                    ScrollBarThickness = 2,
+                    ScrollBarImageColor3 = Library.Theme.Accent,
+                    ZIndex = 2
+                })
+                Items["TabList"]:AddToTheme({ScrollBarImageColor3 = "Accent"})
+                Instances:Create("UIListLayout", {
+                    Parent = Items["TabList"].Instance,
                     Padding = UDimNew(0, 12),
                     SortOrder = Enum.SortOrder.LayoutOrder
                 })
-
                 Instances:Create("UIPadding", {
-                    Parent = Items["LeftTabs"].Instance,
-                    Name = "\0",
-                    PaddingTop = UDimNew(0, 88),
-                    PaddingBottom = UDimNew(0, 15),
+                    Parent = Items["TabList"].Instance,
+                    PaddingTop = UDimNew(0, 0),
+                    PaddingBottom = UDimNew(0, 8),
                     PaddingRight = UDimNew(0, 12),
                     PaddingLeft = UDimNew(0, 12)
                 })
+                Items["ProfileFooter"] = Instances:Create("Frame", {
+                    Parent = Items["LeftTabs"].Instance,
+                    Name = "ProfileFooter",
+                    AnchorPoint = Vector2New(0, 1),
+                    Position = UDim2New(0, 12, 1, -12),
+                    Size = UDim2New(1, -24, 0, 48),
+                    BackgroundTransparency = 1,
+                    ZIndex = 3
+                })
+                local profilePlayer = Players.LocalPlayer
+                Items["ProfileAvatar"] = Instances:Create("ImageLabel", {
+                    Parent = Items["ProfileFooter"].Instance,
+                    Name = "Avatar",
+                    Position = UDim2New(0, 0, 0, 6),
+                    Size = UDim2New(0, 36, 0, 36),
+                    BackgroundColor3 = Library.Theme["Element"],
+                    BorderSizePixel = 0,
+                    Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(profilePlayer.UserId) .. "&w=48&h=48",
+                    ZIndex = 3
+                })
+                Instances:Create("UICorner", {Parent = Items["ProfileAvatar"].Instance, CornerRadius = UDimNew(0, 5)})
+                Items["ProfileGame"] = Instances:Create("TextLabel", {
+                    Parent = Items["ProfileFooter"].Instance,
+                    Name = "GameName",
+                    Position = UDim2New(0, 46, 0, 5),
+                    Size = UDim2New(1, -46, 0, 19),
+                    BackgroundTransparency = 1,
+                    FontFace = Library.Font,
+                    TextSize = 13,
+                    TextColor3 = Library.Theme.Text,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Text = Data.GameName or game.Name,
+                    ZIndex = 3
+                })
+                Items["ProfileGame"]:AddToTheme({TextColor3 = "Text"})
+                Items["ProfileTier"] = Instances:Create("TextLabel", {
+                    Parent = Items["ProfileFooter"].Instance,
+                    Name = "Tier",
+                    Position = UDim2New(0, 46, 0, 25),
+                    Size = UDim2New(1, -46, 0, 17),
+                    BackgroundTransparency = 1,
+                    FontFace = Library.Font,
+                    TextSize = 12,
+                    TextColor3 = FromRGB(65, 210, 125),
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Text = "Free",
+                    ZIndex = 3
+                })
+                task.spawn(function()
+                    local ok, image, ready = pcall(Players.GetUserThumbnailAsync, Players, profilePlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+                    if Library and ok and ready and Items.ProfileFooter.Instance.Parent then Items.ProfileAvatar.Instance.Image = image end
+                end)
+                if not Data.GameName then
+                    task.spawn(function()
+                        local market = game:GetService("MarketplaceService")
+                        local ok, info = pcall(market.GetProductInfo, market, game.PlaceId)
+                        if Library and ok and type(info) == "table" and type(info.Name) == "string" and Items.ProfileFooter.Instance.Parent then Items.ProfileGame.Instance.Text = info.Name end
+                    end)
+                end
 
                 Items["BrandHeader"] = Instances:Create("Frame", {
                     Parent = Items["MainFrame"].Instance,
@@ -3238,16 +3311,10 @@ local Library do
                 })
 
 
-                Settings:Keybind({
-                    Name = "Menu Keybind",
-                    Flag = "MenuBind",
-                    Default = Enum.KeyCode.Z,
-                    Callback = function(Value)
-                        if Window.SetOpen then
-                            Window:SetOpen(Value)
-                        end
-                    end
-                })
+                Settings:Label("Menu key: " .. (tostring(Library.MenuKeybind):match("([^%.]+)$") or "RightShift"))
+                Library.SetFlags.MenuBind = function() end
+                Library.Flags.MenuBind = nil
+
 
                 Window.Items = Items
             end
@@ -3263,6 +3330,7 @@ local Library do
             end
 
             function Window:SetOpen(Bool)
+                if Library.RestoringConfig then return end
                 if Debounce then
                     return
                 end
@@ -3336,20 +3404,291 @@ local Library do
             return setmetatable(Window, Library)
         end
 
+        Library.Loader = function(self, Data)
+            Data = Data or {}
+            if self.ActiveLoader then self.ActiveLoader:Destroy() end
+            local RequireKey = Data.RequireKey == true
+            local Height = 300
+            local FooterOffset = RequireKey and 100 or 0
+            local Player = Players.LocalPlayer
+            local Route = Data.Routes and (Data.Routes[game.GameId] or Data.Routes[tostring(game.GameId)])
+            local Available = Route ~= nil
+            if type(Route) == "table" and Route.File then Available = type(isfile) == "function" and isfile(Route.File) end
+            if Data.OnLaunch and not Data.Routes then Available = true end
+            local Loader = {Alive = true, Busy = false, Supported = Available, Authorized = not RequireKey, Route = Route, Items = {}, Connections = {}}
+            local Items = Loader.Items
+            local function connect(signal, callback)
+                local connection = signal:Connect(callback)
+                table.insert(Loader.Connections, connection)
+                return connection
+            end
+            local function create(class, properties)
+                return Instances:Create(class, properties)
+            end
+            local function text(parent, name, value, x, y, width, height, size, color)
+                return create("TextLabel", {Parent = parent, Name = name, Text = value, Position = UDim2New(0,x,0,y), Size = UDim2New(0,width,0,height), BackgroundTransparency = 1, FontFace = Library.Font, TextSize = size, TextColor3 = color or Library.Theme.Text, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 22})
+            end
+            Items.Root = create("Frame", {Parent = self.Holder.Instance, Name = "AxisLoader", AnchorPoint = Vector2New(.5,.5), Position = UDim2New(.5,0,.5,0), Size = UDim2New(0,520,0,Height), BackgroundColor3 = Library.Theme.Background, BorderSizePixel = 0, ZIndex = 20})
+            Items.Root:AddToTheme({BackgroundColor3 = "Background"})
+            Items.Root:MakeDraggable()
+            create("UICorner", {Parent = Items.Root.Instance, CornerRadius = UDimNew(0,5)})
+            Items.Scale = create("UIScale", {Parent = Items.Root.Instance, Scale = 1})
+            local function fit()
+                local viewport = self.Holder.Instance.AbsoluteSize
+                Items.Scale.Instance.Scale = math.clamp(math.min(1,(viewport.X-32)/520,(viewport.Y-32)/Height),.4,1)
+            end
+            fit()
+            connect(self.Holder.Instance:GetPropertyChangedSignal("AbsoluteSize"),fit)
+            local logo = Data.Logo
+            if not logo then
+                local path = self.Folders.Assets .. "/axis-logo.png"
+                local ok = pcall(function()
+                    if not isfile(path) then writefile(path,game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/main/assets/axis-logo.png")) end
+                    logo = getcustomasset(path)
+                end)
+                if not ok then logo = "" end
+            end
+            Items.Logo = create("ImageLabel", {Parent = Items.Root.Instance, Name = "Logo", Position = UDim2New(0,16,0,8), Size = UDim2New(0,146,0,48), BackgroundTransparency = 1, Image = logo, ImageColor3 = Library.Theme.Accent, ScaleType = Enum.ScaleType.Fit, ZIndex = 22})
+            Items.Logo:AddToTheme({ImageColor3 = "Accent"})
+            Items.Close = create("TextButton", {Parent = Items.Root.Instance, Name = "Close", AnchorPoint = Vector2New(1,0), Position = UDim2New(1,-12,0,12), Size = UDim2New(0,28,0,28), BackgroundColor3 = Library.Theme.Element, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 23})
+            create("UICorner", {Parent = Items.Close.Instance, CornerRadius = UDimNew(0,4)})
+            create("ImageLabel", {Parent = Items.Close.Instance, Name = "Icon", AnchorPoint = Vector2New(.5,.5), Position = UDim2New(.5,0,.5,0), Size = UDim2New(0,10,0,10), BackgroundTransparency = 1, Image = "rbxassetid://130510492706892", ImageColor3 = Library.Theme.Text, ZIndex = 24})
+            Items.GameCard = create("Frame", {Parent = Items.Root.Instance, Name = "Game", Position = UDim2New(0,20,0,92), Size = UDim2New(0,420,0,68), BackgroundColor3 = Library.Theme["Section Background 2"], BorderSizePixel = 0, ZIndex = 21})
+            create("UICorner", {Parent = Items.GameCard.Instance, CornerRadius = UDimNew(0,4)})
+            Items.GameIcon = create("ImageLabel", {Parent = Items.GameCard.Instance, Name = "Icon", Position = UDim2New(0,12,0,12), Size = UDim2New(0,44,0,44), BackgroundTransparency = 1, Image = "rbxassetid://112148279212860", ImageColor3 = Library.Theme.Accent, ZIndex = 22})
+            create("UICorner", {Parent = Items.GameIcon.Instance, CornerRadius = UDimNew(0,5)})
+            local routeName = type(Route) == "table" and Route.Name
+            Items.GameName = text(Items.GameCard.Instance,"Name",Data.GameName or routeName or game.Name,68,11,338,22,15)
+            Items.Support = text(Items.GameCard.Instance,"Support",Data.Preview and (RequireKey and "Supported" or "Interface preview") or (Available and "Supported" or "Not supported yet"),68,36,338,18,12,Available and FromRGB(65,210,125) or FromRGB(225,172,75))
+            local executor = "Unknown"
+            if type(identifyexecutor) == "function" then local ok,value = pcall(identifyexecutor) if ok then executor = tostring(value) end end
+            text(Items.Root.Instance,"ExecutorTitle","Executor",20,173,120,18,13).Instance.TextTransparency = .4
+            Items.Executor = text(Items.Root.Instance,"Executor",executor,160,173,280,18,13)
+            Items.Executor.Instance.TextXAlignment = Enum.TextXAlignment.Right
+            text(Items.Root.Instance,"AccessTitle","Access",20,199,120,18,13).Instance.TextTransparency = .4
+            Items.Access = text(Items.Root.Instance,"Access",RequireKey and "Premium" or "Free",160,199,280,18,13,FromRGB(65,210,125))
+            Items.Access.Instance.TextXAlignment = Enum.TextXAlignment.Right
+            Items.Launch = create("TextButton", {Parent = Items.Root.Instance, Name = "Launch", Position = UDim2New(0,20,0,RequireKey and 289 or 231), Size = UDim2New(0,420,0,34), BackgroundColor3 = Available and Library.Theme.Accent or Library.Theme.Element, BorderSizePixel = 0, Text = RequireKey and "Submit key" or (Data.Preview and "Preview interface" or (Available and "Launch Axis" or "Game not supported")), TextSize = 14, FontFace = Library.Font, TextColor3 = Library.Theme.Text, AutoButtonColor = false, ZIndex = 22})
+            create("UICorner", {Parent = Items.Launch.Instance, CornerRadius = UDimNew(0,4)})
+            Items.Avatar = create("ImageLabel", {Parent = Items.Root.Instance, Name = "Avatar", Position = UDim2New(0,20,0,283+FooterOffset), Size = UDim2New(0,28,0,28), BackgroundTransparency = 1, Image = "rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=48&h=48", ZIndex = 22})
+            create("UICorner", {Parent = Items.Avatar.Instance, CornerRadius = UDimNew(1,0)})
+            Items.Username = text(Items.Root.Instance,"Username",Player.Name,58,280+FooterOffset,262,18,13)
+            Items.Status = text(Items.Root.Instance,"Status",Data.Preview and (RequireKey and "Key required (preview)" or "UI preview") or (Available and (RequireKey and "Key required" or "Ready to launch") or "No script for this game"),58,298+FooterOffset,262,15,11)
+            Items.Status.Instance.TextTransparency = .4
+            Items.Discord = create("TextButton", {Parent = Items.Root.Instance, Name = "Discord", Position = UDim2New(0,344,0,283+FooterOffset), Size = UDim2New(0,96,0,28), BackgroundColor3 = Library.Theme.Element, BorderSizePixel = 0, Text = "Discord", FontFace = Library.Font, TextSize = 12, TextColor3 = Library.Theme.Text, AutoButtonColor = false, ZIndex = 22})
+            create("UICorner", {Parent = Items.Discord.Instance, CornerRadius = UDimNew(0,4)})
+            local statusRevision=0
+            function Loader:SetStatus(message,temporary)
+                statusRevision=statusRevision+1
+                local revision=statusRevision
+                local previous=Items.Status.Instance.Text
+                Items.Status.Instance.Text=message
+                if temporary then task.delay(3,function()
+                    if self.Alive and statusRevision==revision then Items.Status.Instance.Text=previous end
+                end) end
+            end
+            if RequireKey then
+                text(Items.Root.Instance,"KeyTitle","License key",20,225,420,18,12).Instance.TextTransparency=.35
+                Items.KeyInput=create("TextBox",{Parent=Items.Root.Instance,Name="Key",Position=UDim2New(0,20,0,247),Size=UDim2New(0,420,0,34),BackgroundColor3=Library.Theme.Element,BorderSizePixel=0,Text="",PlaceholderText="Enter your license key",PlaceholderColor3=FromRGB(125,130,140),TextColor3=Library.Theme.Text,TextSize=13,FontFace=Library.Font,ClearTextOnFocus=false,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=22})
+                create("UICorner",{Parent=Items.KeyInput.Instance,CornerRadius=UDimNew(0,4)})
+                create("UIPadding",{Parent=Items.KeyInput.Instance,PaddingLeft=UDimNew(0,12),PaddingRight=UDimNew(0,12)})
+                local function accessButton(name,label,x,url)
+                    local button=create("TextButton",{Parent=Items.Root.Instance,Name=name,Position=UDim2New(0,x,0,331),Size=UDim2New(0,204,0,30),BackgroundColor3=Library.Theme.Element,BorderSizePixel=0,Text=label,FontFace=Library.Font,TextSize=12,TextColor3=Library.Theme.Text,AutoButtonColor=false,ZIndex=22})
+                    create("UICorner",{Parent=button.Instance,CornerRadius=UDimNew(0,4)})
+                    connect(button.Instance.MouseButton1Click,function()
+                        if Data.Preview then Loader:SetStatus(label.." example",true)
+                        elseif type(url)=="string" and url~="" and type(setclipboard)=="function" then setclipboard(url) Loader:SetStatus(label.." link copied",true)
+                        else Loader:SetStatus(label.." link not configured",true) end
+                    end)
+                    return button
+                end
+                Items.Linkvertise=accessButton("Linkvertise","Linkvertise",20,Data.LinkvertiseUrl)
+                Items.Premium=accessButton("BuyPremium","Buy Premium",236,Data.PremiumUrl)
+            end
+            local function rect(item,x,y,width,height)
+                item.Instance.Position=UDim2New(0,x,0,y)
+                item.Instance.Size=UDim2New(0,width,0,height)
+            end
+            create("Frame",{Parent=Items.Root.Instance,Name="Divider",Position=UDim2New(0,313,0,20),Size=UDim2New(0,1,1,-40),BackgroundColor3=Library.Theme.Element,BorderSizePixel=0,ZIndex=21})
+            rect(Items.Logo,88,24,138,44)
+            Items.GameTitle=text(Items.Root.Instance,"GameTitle","Detected game",330,24,140,18,12)
+            Items.GameTitle.Instance.TextTransparency=.4
+            rect(Items.GameCard,330,49,170,58)
+            rect(Items.GameIcon,8,12,34,34)
+            rect(Items.GameName,50,9,112,18)
+            Items.GameName.Instance.TextSize=12
+            rect(Items.Support,50,31,112,16)
+            Items.Support.Instance.TextSize=11
+            local executorTitle=Items.Root.Instance:FindFirstChild("ExecutorTitle")
+            executorTitle.Position=UDim2New(0,330,0,122)
+            executorTitle.Size=UDim2New(0,64,0,18)
+            rect(Items.Executor,394,122,106,18)
+            Items.Executor.Instance.TextSize=12
+            Items.Root.Instance:FindFirstChild("AccessTitle").Visible=false
+            Items.Access.Instance.Visible=false
+            text(Items.Root.Instance,"StatusTitle","Status",330,147,54,18,12).Instance.TextTransparency=.4
+            rect(Items.Status,384,138,116,36)
+            Items.Status.Instance.TextWrapped=true
+            Items.Status.Instance.TextTruncate=Enum.TextTruncate.None
+            Items.Status.Instance.TextSize=11
+            Items.Status.Instance.TextXAlignment=Enum.TextXAlignment.Right
+            Items.Status.Instance.TextTransparency=0
+            Items.Status.Instance.Text=RequireKey and "Key required" or (Available and "Ready" or "Not supported")
+            Items.Status.Instance.TextColor3=RequireKey and FromRGB(225,172,75) or Library.Theme.Text
+            rect(Items.Launch,20,164,274,34)
+            if RequireKey then
+                local title=Items.Root.Instance:FindFirstChild("KeyTitle")
+                title.Position=UDim2New(0,20,0,99)
+                title.Size=UDim2New(0,274,0,18)
+                rect(Items.KeyInput,20,121,274,34)
+                rect(Items.Linkvertise,20,207,132,30)
+                rect(Items.Premium,162,207,132,30)
+            end
+            rect(Items.Avatar,20,252,30,30)
+            text(Items.Root.Instance,"Welcome","Welcome back",60,247,234,16,11).Instance.TextTransparency=.5
+            rect(Items.Username,60,264,234,18)
+            rect(Items.Discord,330,183,170,40)
+            Items.Discord.Instance.Text="Discord"
+            Items.Website=create("TextButton",{Parent=Items.Root.Instance,Name="Website",Position=UDim2New(0,330,0,232),Size=UDim2New(0,170,0,40),BackgroundColor3=Library.Theme.Element,BorderSizePixel=0,Text="Website",FontFace=Library.Font,TextSize=12,TextColor3=Library.Theme.Text,AutoButtonColor=false,ZIndex=22})
+            create("UICorner",{Parent=Items.Website.Instance,CornerRadius=UDimNew(0,4)})
+            connect(Items.Website.Instance.MouseButton1Click,function()
+                if Data.Preview then Items.Status.Instance.Text="Website example"
+                elseif type(Data.WebsiteUrl)=="string" and Data.WebsiteUrl~="" and type(setclipboard)=="function" then setclipboard(Data.WebsiteUrl) Items.Status.Instance.Text="Link copied"
+                else Items.Status.Instance.Text="Not configured" end
+            end)
+            local function buttonIcon(button,label,kind)
+                button.Instance.Text=""
+                local group=create("Frame",{Parent=button.Instance,Name="IconLabel",AnchorPoint=Vector2New(.5,.5),Position=UDim2New(.5,0,.5,0),Size=UDim2New(0,0,1,0),AutomaticSize=Enum.AutomaticSize.X,BackgroundTransparency=1,ZIndex=23})
+                create("UIListLayout",{Parent=group.Instance,FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDimNew(0,7)})
+                local icons={link="rbxassetid://7733978098",bag="rbxassetid://7734056747",chat="rbxassetid://7733993311",globe="rbxassetid://7733954760"}
+                local canvas=create("ImageLabel",{Parent=group.Instance,Name="Glyph",Size=UDim2New(0,16,0,16),BackgroundTransparency=1,Image=icons[kind],ImageColor3=Library.Theme.Text,ScaleType=Enum.ScaleType.Fit,LayoutOrder=1,ZIndex=24})
+                create("TextLabel",{Parent=group.Instance,Name="Label",Size=UDim2New(0,0,0,18),AutomaticSize=Enum.AutomaticSize.X,BackgroundTransparency=1,FontFace=Library.Font,TextSize=12,TextColor3=Library.Theme.Text,Text=label,LayoutOrder=2,ZIndex=24})
+                return canvas
+            end
+            if Items.Linkvertise then Items.LinkvertiseIcon=buttonIcon(Items.Linkvertise,"Linkvertise","link")end
+            if Items.Premium then Items.PremiumIcon=buttonIcon(Items.Premium,"Buy Premium","bag")end
+            Items.DiscordIcon=buttonIcon(Items.Discord,"Discord","chat")
+            Items.WebsiteIcon=buttonIcon(Items.Website,"Website","globe")
+            function Loader:SubmitKey()
+                if not self.Alive or self.Busy then return false end
+                local key=Items.KeyInput and Items.KeyInput.Instance.Text:match("^%s*(.-)%s*$") or ""
+                if key=="" then self:SetStatus("Enter your key first") return false end
+                if Data.Preview then Items.Status.Instance.Text="Example key submitted" self.PreviewKeySubmitted=true return true end
+                if type(Data.ValidateKey)~="function" then Items.Status.Instance.Text="Key verification not configured" return false end
+                self.Busy=true
+                Items.Launch.Instance.Text="Checking key..."
+                self:SetStatus("Checking key...")
+                task.spawn(function()
+                    local ok,accepted,message=pcall(Data.ValidateKey,key,Route)
+                    if not self.Alive then return end
+                    self.Busy=false
+                    if ok and accepted==true then
+                        self.Authorized=true
+                        self:SetStatus(type(message)=="string" and message or "Key accepted")
+                        if self.Supported then self:Launch() else Items.Status.Instance.Text="Key valid" Items.Launch.Instance.Text="Game not supported" end
+                    else self:SetStatus(ok and type(message)=="string" and message or "Unable to verify key. Try again.") Items.Launch.Instance.Text="Submit key" end
+                end)
+                return true
+            end
+            function Loader:Destroy()
+                if not self.Alive then return end
+                self.Alive = false
+                Items.Root.Instance.Visible=false
+                Items.Root.Instance:Destroy()
+                for _,connection in ipairs(self.Connections) do pcall(function()connection:Disconnect()end) end
+                if Library and Library.ActiveLoader == self then Library.ActiveLoader = nil end
+            end
+            function Loader:Launch()
+                if not self.Alive or self.Busy or not self.Supported then return false end
+                if RequireKey and not self.Authorized then return self:SubmitKey() end
+                self.Busy = true
+                Items.Launch.Instance.Text = "Loading..."
+                Items.Status.Instance.Text = "Loading..."
+                local completed=false
+                local function loaded()
+                    if completed or not self.Alive then return end
+                    completed=true
+                    Items.Launch.Instance.Text="Loaded"
+                    self:SetStatus("Loaded")
+                    task.delay(.6,function()if self.Alive then self:Destroy() end end)
+                end
+                if type(Data.IsReady)=="function" then task.spawn(function()
+                    local deadline=os.clock()+90
+                    while self.Alive and self.Busy and not completed and os.clock()<deadline do
+                        local ok,ready=pcall(Data.IsReady)
+                        if ok and ready then loaded() return end
+                        task.wait(.2)
+                    end
+                end) end
+                task.spawn(function()
+                    local ok,value,reason = pcall(function()
+                        if not self.Alive then return false,"Cancelled" end
+                        if Data.OnLaunch then return Data.OnLaunch(Route) end
+                        if type(Route) == "function" then return Route() end
+                        local source
+                        if type(Route) == "table" and Route.File then
+                            source = readfile(Route.File)
+                        else
+                            local url = type(Route) == "table" and Route.Url or Route
+                            source = game:HttpGet(url)
+                        end
+                        if type(source)~="string" or source=="" then error("Script unavailable",0)end
+                        if not self.Alive then return false,"Cancelled" end
+                        local chunk,message = loadstring(source,"Axis game")
+                        if not chunk then error(message,0) end
+                        return chunk()
+                    end)
+                    if not self.Alive or completed then return end
+                    if ok and value ~= false then
+                        loaded()
+                    else
+                        self.LastError = tostring(reason or value)
+                        self.Busy = false
+                        Items.Status.Instance.Text = "Unable to load. Try again."
+                        Items.Launch.Instance.Text = "Retry"
+                    end
+                end)
+                return true
+            end
+            Items.Close.Instance.ZIndex=100
+            Items.Close.Instance.Icon.ZIndex=101
+            connect(Items.Close.Instance.Activated,function()Loader:Destroy()end)
+            connect(Items.Launch.Instance.MouseButton1Click,function()Loader:Launch()end)
+            if Items.KeyInput then connect(Items.KeyInput.Instance.FocusLost,function(enter)if enter then Loader:SubmitKey()end end)end
+            connect(Items.Discord.Instance.MouseButton1Click,function()
+                if type(setclipboard)=="function" then setclipboard(Data.Discord or "https://discord.gg/vhxurCeKKN") Loader:SetStatus("Discord link copied",true) end
+            end)
+            connect(UserInputService.InputBegan,function(input,processed)
+                if not processed and input.KeyCode==Enum.KeyCode.RightShift and not UserInputService:GetFocusedTextBox() then Items.Root.Instance.Visible=not Items.Root.Instance.Visible end
+            end)
+            task.spawn(function()
+                local market=game:GetService("MarketplaceService")
+                local ok,info=pcall(market.GetProductInfo,market,game.PlaceId)
+                if not Loader.Alive or not ok or type(info)~="table" then return end
+                if not Data.GameName and not routeName and type(info.Name)=="string" then Items.GameName.Instance.Text=info.Name end
+                if type(info.IconImageAssetId)=="number" and info.IconImageAssetId>0 then Items.GameIcon.Instance.Image="rbxassetid://"..tostring(info.IconImageAssetId) Items.GameIcon.Instance.ImageColor3=FromRGB(255,255,255) end
+            end)
+            self.ActiveLoader=Loader
+            table.insert(self.ToClean,Items.Root.Instance)
+            return Loader
+        end
+
         Library.Watermark = function(self, Data)
+            Data = Data or {}
             if not Library.WatermarkFrame then
                 Library.WatermarkFrame = Instances:Create("Frame", {
                     Parent = Library.Holder.Instance,
                     Name = "Watermark",
                     AnchorPoint = Vector2New(0, 0),
                     Position = UDim2New(0, 15, 0, 15),
-                    Size = UDim2New(0, 0, 0, 28),
+                    Size = UDim2New(0, 0, 0, 36),
                     AutomaticSize = Enum.AutomaticSize.X,
                     BorderSizePixel = 0,
-                    BackgroundColor3 = FromRGB(27, 25, 29),
+                    BackgroundColor3 = Library.Theme["Section Background 2"],
                     ZIndex = 10,
                     Visible = false
                 })
+                Library.WatermarkFrame:AddToTheme({BackgroundColor3 = "Section Background 2"})
                 Library.WatermarkFrame:MakeDraggable()
 
                 Instances:Create("UICorner", {
@@ -3357,48 +3696,11 @@ local Library do
                     CornerRadius = UDimNew(0, 4)
                 })
 
-                Instances:Create("UIStroke", {
-                    Parent = Library.WatermarkFrame.Instance,
-                    Color = FromRGB(0, 0, 0),
-                    Thickness = 1,
-                    Transparency = 0
-                })
-                local AccentLine = Instances:Create("Frame", {
-                    Parent = Library.WatermarkFrame.Instance,
-                    Name = "Accent",
-                    Size = UDim2New(1, 0, 0, 2),
-                    Position = UDim2New(0, 0, 0, 0),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = FromRGB(255, 255, 255),
-                    ZIndex = 12
-                })
-
-                Instances:Create("UICorner", {
-                    Parent = AccentLine.Instance,
-                    CornerRadius = UDimNew(0, 4)
-                })
-
-                local Gradient = Instances:Create("UIGradient", {
-                    Parent = AccentLine.Instance,
-                    Color = RGBSequence{
-                        RGBSequenceKeypoint(0, Library.Theme.Accent),
-                        RGBSequenceKeypoint(1, Library.Theme.AccentGradient)
-                    }
-                })
-
-                Gradient:AddToTheme({
-                    Color = function()
-                        return RGBSequence{
-                            RGBSequenceKeypoint(0, Library.Theme.Accent),
-                            RGBSequenceKeypoint(1, Library.Theme.AccentGradient)
-                        }
-                    end
-                })
-
                 local Content = Instances:Create("Frame", {
                     Parent = Library.WatermarkFrame.Instance,
                     Name = "Content",
-                    Size = UDim2New(1, 0, 1, 0),
+                    Size = UDim2New(0, 0, 1, 0),
+                    AutomaticSize = Enum.AutomaticSize.X,
                     BackgroundTransparency = 1,
                     ZIndex = 11
                 })
@@ -3415,7 +3717,8 @@ local Library do
                     Parent = Content.Instance,
                     PaddingLeft = UDimNew(0, 10),
                     PaddingRight = UDimNew(0, 10),
-                    PaddingTop = UDimNew(0, 4)
+                    PaddingTop = UDimNew(0, 4),
+                    PaddingBottom = UDimNew(0, 4)
                 })
 
                 if Library.ToClean then
@@ -3433,7 +3736,8 @@ local Library do
                             Parent = ContentFrame,
                             Name = SepName,
                             Text = "|",
-                            TextColor3 = FromRGB(80, 80, 80),
+                            TextColor3 = Library.Theme.Text,
+                            TextTransparency = 0.7,
                             FontFace = Library.Font,
                             TextSize = 14,
                             BackgroundTransparency = 1,
@@ -3448,7 +3752,7 @@ local Library do
                 local ExistingItem = ContentFrame:FindFirstChild(ItemName)
 
                 local Type = type(Value)
-                local IsImage = (Type == "number" or (Type == "string" and string.find(Value, "rbxassetid")))
+                local IsImage = Type == "number" or Type == "string" and (Value:match("^rbxassetid://") or Value:match("^rbxthumb://") or Value:match("^rbxasset://") or Value:match("^https?://"))
 
                 if ExistingItem then
                     if IsImage and not ExistingItem:IsA("ImageLabel") then
@@ -3466,11 +3770,12 @@ local Library do
                             Parent = ContentFrame,
                             Name = ItemName,
                             BackgroundTransparency = 1,
-                            Size = UDim2New(0, 14, 0, 14),
+                            Size = UDim2New(0, 24, 0, 24),
                             ImageColor3 = FromRGB(255, 255, 255),
                             LayoutOrder = Index * 2,
                             ZIndex = 11
                         }).Instance
+                        Instances:Create("UICorner", {Parent = ExistingItem, CornerRadius = UDimNew(1, 0)})
                     else
                         ExistingItem = Instances:Create("TextLabel", {
                             Parent = ContentFrame,
@@ -3492,6 +3797,9 @@ local Library do
                         ExistingItem.Image = ImageId
                     end
                 else
+                    ExistingItem.FontFace = Library.Font
+                    ExistingItem.TextColor3 = Index == 4 and Library.Theme.Accent or Library.Theme.Text
+                    ExistingItem.TextTransparency = Index == 3 and 0.25 or 0
                     local TextVal = tostring(Value)
                     if ExistingItem.Text ~= TextVal then
                         ExistingItem.Text = TextVal
@@ -3510,10 +3818,56 @@ local Library do
             end
         end
 
+        Library.SetWatermarkVisible = function(self, Visible)
+            self.WatermarkVisible = Visible == true
+            if not self.DefaultWatermarkProfile then
+                local Player = Players.LocalPlayer
+                self.DefaultWatermarkProfile = {
+                    Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(Player.UserId) .. "&w=48&h=48",
+                    Username = Player.Name,
+                    Game = game.Name ~= "Game" and game.Name or "Roblox",
+                }
+                local function refresh()
+                    if not Library then return end
+                    local Profile = self.DefaultWatermarkProfile
+                    self:Watermark({Profile.Image, Profile.Username, Profile.Game, os.date("%H:%M:%S")})
+                    self.WatermarkFrame.Instance.Visible = self.WatermarkVisible == true
+                end
+                self.RefreshDefaultWatermark = refresh
+                refresh()
+                local elapsed = 0
+                self:Connect(RunService.Heartbeat, function(dt)
+                    if not Library then return end
+                    elapsed += dt
+                    if elapsed >= 1 then
+                        elapsed = 0
+                        if self.WatermarkVisible then refresh() end
+                    end
+                end)
+                task.spawn(function()
+                    local ok, image, ready = pcall(Players.GetUserThumbnailAsync, Players, Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+                    if Library and ok and ready and type(image) == "string" then
+                        self.DefaultWatermarkProfile.Image = image
+                        refresh()
+                    end
+                end)
+                task.spawn(function()
+                    local marketplace = game:GetService("MarketplaceService")
+                    local ok, info = pcall(marketplace.GetProductInfo, marketplace, game.PlaceId)
+                    if Library and ok and type(info) == "table" and type(info.Name) == "string" then
+                        self.DefaultWatermarkProfile.Game = info.Name
+                        refresh()
+                    end
+                end)
+            else
+                self.RefreshDefaultWatermark()
+            end
+        end
+
         Library.Category = function(self, Name)
             local Items = { } do
                 Items["Category"] = Instances:Create("TextLabel", {
-                    Parent = self.Items["LeftTabs"].Instance,
+                    Parent = (self.Items["TabList"] or self.Items["LeftTabs"]).Instance,
                     Name = "\0",
                     FontFace = Library.Font,
                     TextColor3 = FromRGB(240, 240, 240),
@@ -3550,7 +3904,7 @@ local Library do
 
             local Items = { } do
                 Items["Inactive"] = Instances:Create("TextButton", {
-                    Parent = Page.Window.Items["LeftTabs"].Instance,
+                    Parent = (Page.Window.Items["TabList"] or Page.Window.Items["LeftTabs"]).Instance,
                     Name = "\0",
                     FontFace = Library.Font,
                     TextColor3 = FromRGB(0, 0, 0),
@@ -4867,6 +5221,31 @@ local Library do
             local SettingsItem = { }
 
             function Toggle:Settings(Size)
+                local function positionPopup()
+                    local screen = Library.Holder.Instance.AbsoluteSize
+                    local origin = Library.Holder.Instance.AbsolutePosition
+                    local width, height = 245, 159
+                    if typeof(Size) == "UDim2" then
+                        width = Size.X.Scale * screen.X + Size.X.Offset
+                        height = Size.Y.Scale * screen.Y + Size.Y.Offset
+                    elseif typeof(Size) == "Vector2" then
+                        width, height = Size.X, Size.Y
+                    elseif type(Size) == "number" then
+                        height = Size
+                    end
+                    width = math.min(math.max(120, width), math.max(120, screen.X - 16))
+                    height = math.min(math.max(100, height), math.max(100, screen.Y - 16))
+                    local icon = SettingsItem.SettingsIcon.Instance
+                    local point = icon.AbsolutePosition - origin
+                    local x = point.X + icon.AbsoluteSize.X - width
+                    local y = point.Y + icon.AbsoluteSize.Y + 8
+                    if y + height > screen.Y - 8 then y = point.Y - height - 8 end
+                    local popup = SettingsItem.Settings.Instance
+                    popup.AnchorPoint = Vector2New(0, 0)
+                    popup.AutomaticSize = Enum.AutomaticSize.None
+                    popup.Size = UDim2New(0, width, 0, height)
+                    popup.Position = UDim2New(0, math.clamp(x, 8, math.max(8, screen.X - width - 8)), 0, math.clamp(y, 8, math.max(8, screen.Y - height - 8)))
+                end
                 local Settings = {
                     Window = Toggle.Window,
                     Page = Toggle.Page,
@@ -5045,15 +5424,14 @@ local Library do
                             end
                         end)
 
-                        SettingsItem["Settings"].Instance.Visible = true
                         SettingsItem["Settings"].Instance.Parent = Library.Holder.Instance
-
-                        RenderStepped = RunService.RenderStepped:Connect(function()
-                            SettingsItem["Settings"].Instance.Position = UDim2New(
-                                0, Items["Toggle"].Instance.AbsolutePosition.X + Items["Toggle"].Instance.AbsoluteSize.X / 1.9 + 15,
-                                0, Items["Toggle"].Instance.AbsolutePosition.Y + Items["Toggle"].Instance.AbsoluteSize.Y + Size / 1.9)
-                            SettingsItem["Settings"].Instance.Size = UDim2New(0, 245, 0, Size)
+                        positionPopup()
+                        SettingsItem["Settings"].Instance.Visible = true
+                        RenderStepped = Library:Connect(RunService.RenderStepped, function()
+                            if not Toggle.Window.IsOpen then Settings:SetOpen(false) return end
+                            positionPopup()
                         end)
+
 
                         for Index, Value in Library.OpenFrames do
                             if Value ~= Settings then
@@ -5072,7 +5450,7 @@ local Library do
                         end
 
                         if RenderStepped then
-                            RenderStepped:Disconnect()
+                            if RenderStepped.Connection then RenderStepped.Connection:Disconnect() end
                             RenderStepped = nil
                         end
                     end
@@ -5106,7 +5484,9 @@ local Library do
                         Debounce = false
                         SettingsItem["Settings"].Instance.Visible = Settings.IsOpen
                         task.wait(0.2)
-                        SettingsItem["Settings"].Instance.Parent = not Settings.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
+                        if Library and SettingsItem["Settings"].Instance.Parent then
+                            SettingsItem["Settings"].Instance.Parent = not Settings.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
+                        end
                     end)
                 end
 
@@ -5131,6 +5511,7 @@ local Library do
                 end)
 
                 Settings.Items = SettingsItem
+                Toggle:LayoutControls()
 
                 setmetatable(Settings, Library.Sections)
                 return Settings
@@ -5163,13 +5544,21 @@ local Library do
             end
 
             function Toggle:LayoutControls()
-                local right = Items.BindGear and Items.BindGear.Instance.Visible and 26 or 0
-                for _, button in ipairs(Items.ColorButtons or {}) do
-                    button.Instance.Position = UDim2New(1,-right,0,0)
-                    right = right + 26
+                local right = 0
+                local function place(item)
+                    local button = item.Instance
+                    button.Parent = Items.Toggle.Instance
+                    button.AnchorPoint = Vector2New(1, 0.5)
+                    button.Position = UDim2New(1, -right, 0, 9)
+                    button.Size = UDim2New(0, 18, 0, 18)
+                    button.ZIndex = 5
+                    right += 26
                 end
+                if Items.BindGear and Items.BindGear.Instance.Visible then place(Items.BindGear) end
+                if Items.SettingsIcon and Items.SettingsIcon.Instance.Visible then place(Items.SettingsIcon) end
+                for _, button in ipairs(Items.ColorButtons or {}) do place(button) end
                 Items.Text.Instance.AutomaticSize = Enum.AutomaticSize.None
-                Items.Text.Instance.Size = UDim2New(1,-(right+28),0,18)
+                Items.Text.Instance.Size = UDim2New(1, -(right+28), 0, 18)
                 Items.Text.Instance.TextTruncate = Enum.TextTruncate.AtEnd
             end
 
@@ -5303,7 +5692,7 @@ local Library do
                     Instances:Create("UIStroke", {Parent=popup,Color=Library.Theme.Outline,Thickness=1})
                     local content = Instances:Create("Frame", {Parent=popup,Position=UDim2New(0,10,0,8),Size=UDim2New(1,-20,1,-16),BackgroundTransparency=1,ZIndex=3})
                     local section = {Window=Toggle.Window,Page=Toggle.Page,Items={Content=content},Elements={}}
-                    nativeBind = Library.Sections.Keybind(section, bindData or {Name="",Flag=Toggle.Flag.."_Bind",Default=Enum.KeyCode.Backspace,Mode="Toggle",Callback=function(value) Toggle:Set(value) end})
+                    nativeBind = Library.Sections.Keybind(section, bindData or {Name="",Flag=Toggle.Flag.."_Bind",Default=Enum.KeyCode.Backspace,Mode="Toggle",Callback=function(value) if not Library.RestoringConfig then Toggle:Set(value) end end})
                     local saved = Library.PendingConfig and Library.PendingConfig[nativeBind.Flag]
                     if saved then nativeBind:Set(saved) end
                     nativeBind.Items.Text.Instance.Visible = false
@@ -6720,6 +7109,8 @@ local Library do
             end
 
             function Keybind:SetMode(Mode)
+                Keybind.ModeSelected = Mode
+                if Mode == "Always" then Keybind.Toggled = true elseif Mode == "Hold" then Keybind.Toggled = false end
                 if Mode == "Toggle" then
                     Items["Background"]:Tween(TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, 0, 0, 0), Size = UDim2New(0.35, 0, 1, 0)})
                     Items["Toggle"]:ChangeItemTheme({TextColor3 = function()
@@ -6811,64 +7202,31 @@ local Library do
             end
 
             function Keybind:Set(Key)
-                if StringFind(tostring(Key), "Enum") then
-                    Keybind.Key = tostring(Key)
-
-                    Key = Key.Name == "Backspace" and "None" or Key.Name
-
-                    local KeyString = Keys[Keybind.Key] or StringGSub(Key, "Enum.", "") or "None"
-                    local TextToDisplay = StringGSub(StringGSub(KeyString, "KeyCode.", ""), "UserInputType.", "") or "None"
-
-                    Keybind.Value = TextToDisplay
-                    Items["KeyButton"].Instance.Text = TextToDisplay
-
-                    Library.Flags[Keybind.Flag] = {
-                        Mode = Keybind.ModeSelected,
-                        Key = Keybind.Key,
-                        Toggled = Keybind.Toggled
-                    }
-
-                    if Data.Callback then
-                        Library:SafeCall(Data.Callback, Keybind.Toggled)
+                local function assign(value)
+                    local text = tostring(value or "None")
+                    if text == "None" or text == "Backspace" or text == "Enum.KeyCode.None" then
+                        text = tostring(Enum.KeyCode.Backspace)
+                    elseif not StringFind(text, "Enum.", 1, true) then
+                        text = "Enum.KeyCode." .. text
                     end
-
-                    Update()
-                elseif type(Key) == "table" then
-                    local RealKey = Key.Key == "Backspace" and "None" or Key.Key
-                    Keybind.Key = tostring(Key.Key)
-
-                    if Key.Mode then
-                        Keybind.ModeSelected = Key.Mode
-                        Keybind:SetMode(Key.Mode)
-                    else
-                        Keybind.ModeSelected = "Toggle"
-                        Keybind:SetMode("Toggle")
-                    end
-
-                    local KeyString = Keys[Keybind.Key] or StringGSub(tostring(RealKey), "Enum.", "") or RealKey
-                    local TextToDisplay = KeyString and StringGSub(StringGSub(KeyString, "KeyCode.", ""), "UserInputType.", "") or "None"
-
-                    TextToDisplay = StringGSub(StringGSub(KeyString, "KeyCode.", ""), "UserInputType.", "")
-
-                    Keybind.Value = TextToDisplay
-                    Items["KeyButton"].Instance.Text = TextToDisplay
-
-                    if Data.Callback then
-                        Library:SafeCall(Data.Callback, Keybind.Toggled)
-                    end
-
-                    Update()
-                elseif TableFind({"Toggle", "Hold", "Always"}, Key) then
-                    Keybind.ModeSelected = Key
-                    Keybind:SetMode(Key)
-
-                    if Data.Callback then
-                        Library:SafeCall(Data.Callback, Keybind.Toggled)
-                    end
-
-                    Update()
+                    Keybind.Key = text
                 end
-
+                if type(Key) == "table" then
+                    assign(Key.Key)
+                    Keybind:SetMode(Key.Mode or "Toggle")
+                    if Keybind.ModeSelected == "Toggle" and type(Key.Toggled) == "boolean" then Keybind.Toggled = Key.Toggled end
+                elseif type(Key) == "string" and TableFind({"Toggle", "Hold", "Always"}, Key) then
+                    Keybind:SetMode(Key)
+                else
+                    assign(Key)
+                end
+                local name = StringGSub(StringGSub(tostring(Keybind.Key), "Enum.KeyCode.", ""), "Enum.UserInputType.", "")
+                if name == "Backspace" or name == "Unknown" then name = "None" end
+                Keybind.Value = name
+                Items["KeyButton"].Instance.Text = Keys[Keybind.Key] or name
+                Library.Flags[Keybind.Flag] = {Mode = Keybind.ModeSelected, Key = Keybind.Key, Toggled = Keybind.Toggled}
+                if Data.Callback then Library:SafeCall(Data.Callback, Keybind.Toggled) end
+                Update()
                 Keybind.Picking = false
             end
 
@@ -6964,18 +7322,15 @@ local Library do
             end)
 
             Items["Toggle"]:Connect("MouseButton1Down", function()
-                Keybind.ModeSelected = "Toggle"
-                Keybind:SetMode("Toggle")
+                Keybind:Set("Toggle")
             end)
 
             Items["Hold"]:Connect("MouseButton1Down", function()
-                Keybind.ModeSelected = "Hold"
-                Keybind:SetMode("Hold")
+                Keybind:Set("Hold")
             end)
 
             Items["Always"]:Connect("MouseButton1Down", function()
-                Keybind.ModeSelected = "Always"
-                Keybind:SetMode("Always")
+                Keybind:Set("Always")
             end)
 
             if Keybind.Default then
@@ -7632,9 +7987,7 @@ local Library do
                 Flag = "WatermarkToggle",
                 Default = false,
                 Callback = function(Value)
-                    if Library.WatermarkFrame then
-                        Library.WatermarkFrame.Instance.Visible = Value
-                    end
+                    Library:SetWatermarkVisible(Value)
                 end
             })
 

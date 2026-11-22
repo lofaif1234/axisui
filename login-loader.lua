@@ -8016,6 +8016,7 @@ local environment=getgenv()
 local previous=environment.AxisLauncher
 if previous and previous.Library then pcall(function()previous.Library:Unload()end)end
 local routes={
+    [3183403065]={Name="Anime Adventures"},
     [5750914919]={Name="Fisch"},
     [10155360168]={Name="Illegal Soccer"},
     [10773416193]={Name="Voxel Wars"},

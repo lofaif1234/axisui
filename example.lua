@@ -1,19 +1,21 @@
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/main/source/library.lua"), "Axis UI")()
 local environment = getgenv()
-local previous = environment.NeverloseUIDemo
+local previous = environment.AxisUIDemo or environment.NeverloseUIDemo
 if previous and previous.Library then
+    pcall(function() if previous.Nested and type(previous.Nested.Settings) == "table" then previous.Nested.Settings:SetOpen(false) end end)
     pcall(function() previous.Library:Unload() end)
 end
 
 Library.Folders = {
-    Directory = "axisclub-ui",
-    Configs = "axisclub-ui/Configs",
-    Assets = "axisclub-ui/Assets",
+    Directory = "Axis",
+    Configs = "Axis/Config/UI-example",
+    Assets = "Axis/Assets",
 }
 Library.MenuKeybind = tostring(Enum.KeyCode.RightShift)
 local wordmarkPath = Library.Folders.Assets .. "/axis-logo.png"
 if not isfolder(Library.Folders.Directory) then makefolder(Library.Folders.Directory) end
 if not isfolder(Library.Folders.Assets) then makefolder(Library.Folders.Assets) end
+if not isfolder(Library.Folders.Configs) then makefolder(Library.Folders.Configs) end
 if not isfile(wordmarkPath) then
     writefile(wordmarkPath, game:HttpGet("https://raw.githubusercontent.com/lofaif1234/axisui/main/assets/axis-logo.png"))
 end
@@ -49,10 +51,14 @@ Main:Dropdown({Name = "Multiple choices", Flag = "DemoMulti", Items = {"Alpha", 
 Main:Textbox({Name = "Text", Flag = "DemoText", Placeholder = "Type something", Default = "Hello", Finished = true, Callback = callback("Text")})
 
 local Extra = Controls:Section({Name = "Colors and keys", Side = 2})
-Extra:Label("Color and opacity"):Colorpicker({Flag = "DemoColor", Default = Color3.fromRGB(65, 155, 255), Alpha = 1, Callback = function(color, alpha) record("Color", color); record("Opacity", alpha) end})
-Extra:Keybind({Name = "Test shortcut", Flag = "DemoKey", Default = Enum.KeyCode.K, Mode = "Toggle", Callback = callback("Shortcut")})
-local Nested = Extra:Toggle({Name = "Nested options", Flag = "DemoNested", Default = false, Callback = callback("Nested checkbox")})
-Nested:Colorpicker({Flag = "DemoNestedColor", Default = Color3.new(1, 1, 1), Callback = callback("Attached color")})
+local Inline = Extra:Toggle({Name = "Color and shortcut", Flag = "DemoInlineToggle", Default = false, Callback = callback("Inline checkbox")})
+local Palette = Inline:Colorpicker({Flag = "DemoColor", Default = Color3.fromRGB(65, 155, 255), Alpha = 1, Callback = function(color, alpha) record("Color", color); record("Opacity", alpha) end})
+local Bind = Inline:GetBind({Name = "", Flag = "DemoKey", Default = Enum.KeyCode.Backspace, Mode = "Toggle", Callback = function(value)
+    if not Library.RestoringConfig then Inline:Set(value) end
+    record("Shortcut", value)
+end})
+local Nested = Extra:Toggle({Name = "Advanced options", Flag = "DemoNested", Default = false, Callback = callback("Nested checkbox")})
+Nested:Colorpicker({Flag = "DemoNestedColor", Default = Color3.new(1, 1, 1), Callback = callback("Advanced color")})
 local More = Nested:Settings(UDim2.fromOffset(260, 160))
 More:Slider({Name = "Nested amount", Flag = "DemoNestedAmount", Min = 0, Max = 10, Default = 5, Callback = callback("Nested slider")})
 More:Dropdown({Name = "Nested choice", Flag = "DemoNestedChoice", Items = {"One", "Two"}, Default = "One", Callback = callback("Nested dropdown")})
@@ -81,5 +87,6 @@ Window:Category("Settings")
 local KeybindList = Library:KeybindList("Keybinds")
 Library:CreateSettingsPage(Window, KeybindList)
 Window:Init()
-environment.NeverloseUIDemo = {Library = Library, Window = Window, Events = events}
-return environment.NeverloseUIDemo
+environment.AxisUIDemo = {Library = Library, Window = Window, Events = events, Inline = Inline, Palette = Palette, Bind = Bind, Nested = Nested}
+environment.NeverloseUIDemo = environment.AxisUIDemo
+return environment.AxisUIDemo
