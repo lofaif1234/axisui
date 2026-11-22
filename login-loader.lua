@@ -2130,6 +2130,12 @@ local Library do
         end
 
         Library.Notification = function(self, Data)
+            Data=type(Data)=="table" and table.clone(Data) or {Description=tostring(Data or "")}
+            Data.Title=tostring(Data.Title or "Axis")
+            Data.Description=tostring(Data.Description or Data.Content or "")
+            local duration=tonumber(Data.Duration) or 4
+            Data.Duration=duration==duration and math.clamp(duration,.1,60) or 4
+            Data.Icon=tostring(Data.Icon or "7733964719"):gsub("^rbxassetid://","")
             local Items = { } do
                 Items["Notification"] = Instances:Create("Frame", {
                     Parent = Library.NotifHolder.Instance,
@@ -2245,6 +2251,11 @@ local Library do
                 end
             end
 
+            local notification=Items["Notification"].Instance
+            table.insert(Library.ToClean,notification)
+            task.delay(Data.Duration+1,function()
+                if notification.Parent then notification:Destroy()end
+            end)
             local Size = Items["Notification"].Instance.AbsoluteSize
             Items["Notification"].Instance.Size = UDim2New(0, 0, 0, 0)
 
